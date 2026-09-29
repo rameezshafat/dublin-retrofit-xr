@@ -33,8 +33,9 @@ namespace DublinRetrofit
                 views.FirstOrDefault(v => v.Data.retrofitted && v.Data.type == "house" && v.Data.address.Contains(preferredStreet)) ??
                 views.FirstOrDefault(v => v.Data.retrofitted);
             state.SetSelected(sample);
-            if (sample != null)
-                Camera.main.GetComponent<OrbitCamera>().FocusOn(sample.GetComponent<Renderer>().bounds.center, 260f);
+            // The desktop camera can frame the building; the XR camera is driven by the headset.
+            if (sample != null && Camera.main.TryGetComponent(out OrbitCamera orbit))
+                orbit.FocusOn(sample.GetComponent<Renderer>().bounds.center, 260f);
 
             yield return Capture(Path.Combine(folder, "current.png"));
             state.SetScenario(Scenario.Retrofit);

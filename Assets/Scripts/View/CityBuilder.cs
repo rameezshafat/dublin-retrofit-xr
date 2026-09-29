@@ -10,6 +10,10 @@ namespace DublinRetrofit
         [SerializeField] Material buildingMaterial; // one shared material for every building
         [SerializeField] Material groundMaterial;   // unlit, textured with basemap.png
 
+        // 1 = real size (desktop). The XR scene uses 1:500 so the area fits on a tabletop.
+        [SerializeField] float modelScale = 1f;
+        [SerializeField] Vector3 modelPosition = Vector3.zero;
+
         const float GroundMargin = 60f; // metres of ground beyond the outermost building
 
         void Start()
@@ -50,6 +54,10 @@ namespace DublinRetrofit
             }
 
             CreateGround(city, dataset.meta.basemap, bounds);
+
+            // Scale the whole model at once; meshes, colliders and ground scale together.
+            city.localScale = Vector3.one * modelScale;
+            city.position = modelPosition;
             Debug.Log($"Built {built} building meshes; area extent {bounds.size.x:F0} x {bounds.size.z:F0} m");
         }
 

@@ -32,6 +32,8 @@ citizen-facing XR / digital-twin tools for retrofit planning.
   now vs after.
 - **About this map** panel explains BER and kWh/m²/yr in plain language and says exactly
   which data is real, estimated or sample.
+- **XR tabletop scene** (`MainXR.unity`): the same model at 1:500 on a table, with the
+  panels on a board behind it; controller rays hover/select buildings and press the buttons.
 
 Controls: right-drag orbit · middle-drag pan · scroll zoom · left-click select · F focus.
 
@@ -58,7 +60,30 @@ CityBuilder     BuildingView     InfoPanel, Legend, AboutPanel
 - **Rendering**: one shared URP Lit material; per-building colour via `MaterialPropertyBlock`
   (no material copies). The street map is an unlit textured quad.
 - **UI** is built in code with uGUI (`UiFactory`); the scene only holds components.
-  `Dublin Retrofit → Rebuild Main Scene` regenerates the scene.
+  `Dublin Retrofit → Rebuild Scenes` regenerates both scenes.
+
+## XR mode
+
+![XR tabletop scene](docs/xr-tabletop.png)
+
+`Assets/Scenes/MainXR.unity` shows the neighbourhood as a tabletop model, the usual way to
+present a neighbourhood-scale digital twin in VR. It is built with the **XR Interaction
+Toolkit 3.6** (Starter Assets rig) and includes the **XR Interaction Simulator**, so it runs
+without a headset.
+
+- Every building gets an `XRSimpleInteractable` (`XrBuildingInteraction`), whose hover/select
+  events call the same `ScenarioState` methods as the mouse, so colours and panels behave
+  identically in desktop and XR.
+- The panels are the same code as the desktop HUD, on a world-space canvas with a
+  `TrackedDeviceGraphicRaycaster`, so controller rays can press the scenario buttons.
+- The rig uses the *Device* tracking origin with a fixed 1.4 m eye height, so the table sits
+  at a comfortable height seated, standing or in the simulator.
+
+**What has been verified:** the scene compiles, runs and renders in a desktop build with the
+simulator (screenshot above, captured automatically). **Not verified yet:** hovering and
+selecting buildings with the simulated controller ray by hand; it has **not been run on a
+VR headset**, and OpenXR is not configured. To try a headset, add
+`com.unity.xr.openxr` and enable OpenXR under Project Settings → XR Plug-in Management.
 
 ## Data
 
@@ -98,7 +123,11 @@ Unity -batchmode -projectPath . -runTests -testPlatform EditMode -testResults re
 ## Running it
 
 1. Open the folder with Unity 6 (developed with 6000.6.3f1) via Unity Hub.
-2. Open `Assets/Scenes/Main.unity` and press Play.
+2. Desktop: open `Assets/Scenes/Main.unity` and press Play.
+3. XR: open `Assets/Scenes/MainXR.unity` and press Play; the XR Interaction Simulator's
+   on-screen panel (toggle with Y) shows its keyboard/mouse controls.
+
+`Dublin Retrofit → Rebuild Scenes` regenerates both scenes from code.
 
 README screenshots are reproducible: run a build with `-capture <folder>`.
 
@@ -106,11 +135,11 @@ README screenshots are reproducible: run a build with `-capture <folder>`.
 
 - Energy data is synthetic; the summary demonstrates the method, not the area.
 - Flat roofs only; most heights are estimated; OSM multipolygon buildings are skipped.
-- Desktop only so far (see below).
+- XR mode is untested on headsets (see XR mode).
 
 ## Next steps
 
-- **XR**: a tabletop VR view of the same model (XR Interaction Toolkit).
+- **XR on device**: configure OpenXR and test on a headset; add hand tracking.
 - **Digital twin**: every building is georeferenced (`meta.originLat/Lon`), so the layer
   could sit on a photorealistic city model (e.g. Cesium / Google 3D Tiles) and be fed with
   measured or modelled energy data instead of samples.
@@ -120,3 +149,5 @@ README screenshots are reproducible: run a build with `-capture <folder>`.
 ## Licence
 
 Code: MIT (see `LICENSE`). Map data and footprints: © OpenStreetMap contributors, ODbL.
+`Assets/Samples/XR Interaction Toolkit` contains Unity's XRI samples under the
+Unity Companion License.

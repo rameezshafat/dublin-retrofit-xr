@@ -11,15 +11,15 @@ using UnityEngine.UI;
 namespace DublinRetrofit.EditorTools
 {
     // One-click (or command-line) project setup: URP pipeline asset, the two materials,
-    // and Scenes/Main.unity with every component wired up. Re-running it rebuilds the scene,
-    // so the scene never has to be edited by hand.
+    // and the desktop (Main) and XR (MainXR) scenes with every component wired up. Re-running it
+    // rebuilds them, so the scenes never have to be edited by hand.
     // Batch mode: Unity -batchmode -projectPath . -executeMethod DublinRetrofit.EditorTools.ProjectSetup.Run -quit
     public static class ProjectSetup
     {
         const string SettingsDir = "Assets/Settings";
         const string ScenePath = "Assets/Scenes/Main.unity";
 
-        [MenuItem("Dublin Retrofit/Rebuild Main Scene")]
+        [MenuItem("Dublin Retrofit/Rebuild Scenes")]
         public static void Run()
         {
             Directory.CreateDirectory(SettingsDir);
@@ -30,7 +30,15 @@ namespace DublinRetrofit.EditorTools
             Material building = CreateMaterial("Building", "Universal Render Pipeline/Lit", Color.white, 0.2f);
             Material ground = CreateGroundMaterial();
             BuildScene(building, ground);
-            Debug.Log($"ProjectSetup: wrote {ScenePath}");
+            XrSceneSetup.BuildScene(building, ground);
+
+            // The desktop scene loads first; the XR scene is included for builds that want it.
+            EditorBuildSettings.scenes = new[]
+            {
+                new EditorBuildSettingsScene(ScenePath, true),
+                new EditorBuildSettingsScene(XrSceneSetup.ScenePath, true),
+            };
+            Debug.Log($"ProjectSetup: wrote {ScenePath} and {XrSceneSetup.ScenePath}");
         }
 
         // Use the desktop URP asset from Unity's URP template for every quality level,
@@ -104,32 +112,18 @@ namespace DublinRetrofit.EditorTools
         static void BuildScene(Material building, Material ground)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.55f, 0.57f, 0.62f);
-
-            var light = new GameObject("Sun").AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.intensity = 1.2f;
-            light.shadows = LightShadows.Soft;
-            light.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+            AddLighting();
 
             var camGo = new GameObject("Main Camera") { tag = "MainCamera" };
             var cam = camGo.AddComponent<Camera>();
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.72f, 0.80f, 0.88f);
+            cam.backgroundColor = SkyColor;
             cam.farClipPlane = 5000f;
             camGo.AddComponent<AudioListener>();
             camGo.AddComponent<OrbitCamera>();
             camGo.AddComponent<SelectionController>();
 
-            var app = new GameObject("App");
-            app.AddComponent<ScenarioState>();
-            app.AddComponent<DatasetLoader>();
-            var builder = new SerializedObject(app.AddComponent<CityBuilder>());
-            builder.FindProperty("buildingMaterial").objectReferenceValue = building;
-            builder.FindProperty("groundMaterial").objectReferenceValue = ground;
-            builder.ApplyModifiedPropertiesWithoutUndo();
-            app.AddComponent<ScreenshotCapture>();
+            CreateApp(building, ground, 1f, Vector3.zero);
 
             var hud = new GameObject("HUD");
             hud.AddComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -138,10 +132,7 @@ namespace DublinRetrofit.EditorTools
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.matchWidthOrHeight = 0.5f;
             hud.AddComponent<GraphicRaycaster>();
-            hud.AddComponent<ScenarioToggle>();
-            hud.AddComponent<InfoPanel>();
-            hud.AddComponent<Legend>();
-            hud.AddComponent<AboutPanel>();
+            AddPanels(hud);
 
             // The Input System needs its own UI input module instead of StandaloneInputModule.
             var events = new GameObject("EventSystem");
@@ -149,7 +140,46 @@ namespace DublinRetrofit.EditorTools
             events.AddComponent<InputSystemUIInputModule>();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+        }
+
+        // ---- Shared by the desktop scene and the XR scene (XrSceneSetup) ----
+
+        internal static readonly Color SkyColor = new Color(0.72f, 0.80f, 0.88f);
+
+        internal static void AddLighting()
+        {
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.55f, 0.57f, 0.62f);
+
+            var light = new GameObject("Sun").AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.intensity = 1.2f;
+            light.shadows = LightShadows.Soft;
+            light.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+        }
+
+        // Data + state + city: identical in both scenes apart from the model's scale/position.
+        internal static GameObject CreateApp(Material building, Material ground, float scale, Vector3 position)
+        {
+            var app = new GameObject("App");
+            app.AddComponent<ScenarioState>();
+            app.AddComponent<DatasetLoader>();
+            var builder = new SerializedObject(app.AddComponent<CityBuilder>());
+            builder.FindProperty("buildingMaterial").objectReferenceValue = building;
+            builder.FindProperty("groundMaterial").objectReferenceValue = ground;
+            builder.FindProperty("modelScale").floatValue = scale;
+            builder.FindProperty("modelPosition").vector3Value = position;
+            builder.ApplyModifiedPropertiesWithoutUndo();
+            app.AddComponent<ScreenshotCapture>();
+            return app;
+        }
+
+        internal static void AddPanels(GameObject canvas)
+        {
+            canvas.AddComponent<ScenarioToggle>();
+            canvas.AddComponent<InfoPanel>();
+            canvas.AddComponent<Legend>();
+            canvas.AddComponent<AboutPanel>();
         }
     }
 }
